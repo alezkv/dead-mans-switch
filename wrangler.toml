@@ -1,0 +1,24 @@
+name = "dms"
+main = "src/index.ts"
+compatibility_date = "2026-10-20"
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "MONITOR"
+class_name = "Monitor"
+
+# The free plan accepts only SQLite-backed Durable Objects.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Monitor"]
+
+# The daily "monitor alive" message, at 08:00 UTC.
+[triggers]
+crons = ["0 8 * * *"]
+
+# One entry for each check. The values are in seconds.
+# A ping must come within timeout + grace of the previous ping.
+[vars.CHECKS]
+backup = { timeout = 86400, grace = 3600 }
