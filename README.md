@@ -62,3 +62,7 @@ run-backup && curl -fsS -m 10 --retry 3 \
   -H "Authorization: Bearer $DMS_TOKEN" \
   https://dms.<account>.workers.dev/ping/backup
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
