@@ -18,7 +18,4 @@ new_sqlite_classes = ["Monitor"]
 [triggers]
 crons = ["0 8 * * *"]
 
-# One entry for each check. The values are in seconds.
-# A ping must come within timeout + grace of the previous ping.
-[vars.CHECKS]
-backup = { timeout = 86400, grace = 3600 }
+# The checks are in the CHECKS secret, not here. See README.md.

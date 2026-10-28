@@ -12,10 +12,10 @@ export interface CheckStatus {
 
 /** One Durable Object for each check. The alarm is the deadline of the next ping. */
 export class Monitor extends DurableObject<Env> {
-	async ping(name: string, timeoutSec: number, graceSec: number): Promise<void> {
+	async ping(name: string, timeoutSec: number): Promise<void> {
 		const now = Date.now();
 		await this.ctx.storage.put({ name, last: now });
-		await this.ctx.storage.setAlarm(now + (timeoutSec + graceSec) * 1000);
+		await this.ctx.storage.setAlarm(now + timeoutSec * 1000);
 
 		if (await this.ctx.storage.get<boolean>("down")) {
 			try {
@@ -33,7 +33,7 @@ export class Monitor extends DurableObject<Env> {
 		if (name === undefined) return;
 
 		// The check was removed from the config. Forget it.
-		if (!(name in checks(this.env))) {
+		if (!checks(this.env).has(name)) {
 			await this.ctx.storage.deleteAll();
 			return;
 		}
@@ -62,14 +62,31 @@ export class Monitor extends DurableObject<Env> {
 }
 
 export interface Check {
-	/** The longest time between two pings, in seconds. */
+	/** The longest time between two pings, in seconds. Include a margin for a slow job and a late alarm. */
 	timeout: number;
-	/** Extra time before the alert, in seconds. */
-	grace: number;
 }
 
-export function checks(env: Env): Record<string, Check> {
-	return env.CHECKS as Record<string, Check>;
+/** Parses the CHECKS secret. Throws if it is not valid, so that a bad secret does not delete or skip a check. */
+export function checks(env: Env): Map<string, Check> {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(env.CHECKS);
+	} catch {
+		// Do not include the parser message. It can quote part of the secret.
+		throw new Error("CHECKS is not valid JSON");
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		throw new Error("CHECKS must be a JSON object");
+	}
+	const map = new Map<string, Check>();
+	for (const [name, check] of Object.entries(parsed)) {
+		const timeout = (check as Partial<Check> | null)?.timeout;
+		if (typeof timeout !== "number" || !(timeout > 0)) {
+			throw new Error(`CHECKS["${name}"]: timeout must be a positive number of seconds`);
+		}
+		map.set(name, { timeout });
+	}
+	return map;
 }
 
 function iso(ms: number | undefined): string | null {

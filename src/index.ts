@@ -14,9 +14,9 @@ export default {
 		const ping = url.pathname.match(/^\/ping\/([^/]+)\/?$/);
 		if (ping && (request.method === "GET" || request.method === "POST")) {
 			const name = decodeURIComponent(ping[1]);
-			const check = checks(env)[name];
+			const check = checks(env).get(name);
 			if (!check) return new Response("unknown check\n", { status: 404 });
-			await env.MONITOR.getByName(name).ping(name, check.timeout, check.grace);
+			await env.MONITOR.getByName(name).ping(name, check.timeout);
 			return new Response("ok\n");
 		}
 
@@ -35,7 +35,7 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 function allStatus(env: Env): Promise<CheckStatus[]> {
-	return Promise.all(Object.keys(checks(env)).map((name) => env.MONITOR.getByName(name).status(name)));
+	return Promise.all([...checks(env).keys()].map((name) => env.MONITOR.getByName(name).status(name)));
 }
 
 function icon(s: CheckStatus): string {

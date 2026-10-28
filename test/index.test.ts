@@ -7,11 +7,12 @@ import {
 import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
+import { checks } from "../src/monitor";
 
 const BASE = "https://dms.test";
 const AUTH = { authorization: "Bearer test-token" };
-// The values of "backup" in wrangler.toml, in ms.
-const BACKUP_WINDOW = (86400 + 3600) * 1000;
+// The timeout of "backup" in vitest.config.ts, in ms.
+const BACKUP_WINDOW = 90000 * 1000;
 
 /** The text of each Telegram message that the Worker sent. */
 let sent: string[];
@@ -67,7 +68,7 @@ describe("ping", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("sets the alarm to now + timeout + grace", async () => {
+	it("sets the alarm to now + timeout", async () => {
 		const before = Date.now();
 		const res = await ping("backup");
 		expect(res.status).toBe(200);
@@ -76,6 +77,11 @@ describe("ping", () => {
 		const alarm = await runInDurableObject(stub(), (_, state) => state.storage.getAlarm());
 		expect(alarm).toBeGreaterThanOrEqual(before + BACKUP_WINDOW);
 		expect(alarm).toBeLessThanOrEqual(Date.now() + BACKUP_WINDOW);
+	});
+
+	it("returns 404 for a name from Object.prototype", async () => {
+		const res = await ping("constructor");
+		expect(res.status).toBe(404);
 	});
 
 	it("accepts POST", async () => {
@@ -140,5 +146,27 @@ describe("daily message", () => {
 		await worker.scheduled(createScheduledController(), env);
 		expect(sent).toHaveLength(1);
 		expect(sent[0]).toBe("🟢 Monitor alive. 1 checks.\n⚪ backup: new, last ping never");
+	});
+});
+
+describe("checks()", () => {
+	const parse = (CHECKS: string) => checks({ ...env, CHECKS });
+
+	it("reads each check", () => {
+		expect(parse('{"a":{"timeout":60}}')).toEqual(new Map([["a", { timeout: 60 }]]));
+	});
+
+	it("throws on bad JSON and does not quote it", () => {
+		expect(() => parse("{secret")).toThrow(/^CHECKS is not valid JSON$/);
+	});
+
+	it("throws if CHECKS is not an object", () => {
+		expect(() => parse("[]")).toThrow(/must be a JSON object/);
+	});
+
+	it("throws on a missing or bad timeout", () => {
+		expect(() => parse('{"a":{}}')).toThrow(/CHECKS\["a"\]: timeout/);
+		expect(() => parse('{"a":{"timeout":0}}')).toThrow(/CHECKS\["a"\]: timeout/);
+		expect(() => parse('{"a":{"timeout":"60"}}')).toThrow(/CHECKS\["a"\]: timeout/);
 	});
 });
