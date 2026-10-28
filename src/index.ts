@@ -1,5 +1,4 @@
 import { checks, type CheckStatus, Monitor } from "./monitor";
-import { notify } from "./telegram";
 
 export { Monitor };
 
@@ -26,20 +25,10 @@ export default {
 
 		return new Response("not found\n", { status: 404 });
 	},
-
-	async scheduled(_controller, env): Promise<void> {
-		const list = await allStatus(env);
-		const lines = list.map((s) => `${icon(s)} ${s.name}: ${s.state}, last ping ${s.last ?? "never"}`);
-		await notify(env, [`🟢 Monitor alive. ${list.length} checks.`, ...lines].join("\n"));
-	},
 } satisfies ExportedHandler<Env>;
 
 function allStatus(env: Env): Promise<CheckStatus[]> {
 	return Promise.all([...checks(env).keys()].map((name) => env.MONITOR.getByName(name).status(name)));
-}
-
-function icon(s: CheckStatus): string {
-	return s.state === "down" ? "🔴" : s.state === "up" ? "✅" : "⚪";
 }
 
 /** Accepts `Authorization: Bearer <token>` or `?key=<token>`. */

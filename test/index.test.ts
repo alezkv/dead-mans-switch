@@ -1,12 +1,6 @@
-import {
-	createScheduledController,
-	runDurableObjectAlarm,
-	reset,
-	runInDurableObject,
-} from "cloudflare:test";
+import { runDurableObjectAlarm, reset, runInDurableObject } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import worker from "../src/index";
 import { checks } from "../src/monitor";
 
 const BASE = "https://dms.test";
@@ -138,14 +132,6 @@ describe("status", () => {
 	it("rejects /status with no token", async () => {
 		const res = await exports.default.fetch(`${BASE}/status`);
 		expect(res.status).toBe(401);
-	});
-});
-
-describe("daily message", () => {
-	it("sends one summary of all checks", async () => {
-		await worker.scheduled(createScheduledController(), env);
-		expect(sent).toHaveLength(1);
-		expect(sent[0]).toBe("🟢 Monitor alive. 1 checks.\n⚪ backup: new, last ping never");
 	});
 });
 

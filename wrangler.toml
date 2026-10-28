@@ -14,8 +14,8 @@ class_name = "Monitor"
 tag = "v1"
 new_sqlite_classes = ["Monitor"]
 
-# The daily "monitor alive" message, at 08:00 UTC.
+# No cron triggers. The empty list removes the old daily trigger from the live Worker.
 [triggers]
-crons = ["0 8 * * *"]
+crons = []
 
 # The checks are in the CHECKS secret, not here. See README.md.

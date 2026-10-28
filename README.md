@@ -2,7 +2,7 @@
 
 A Cloudflare Worker that sends a Telegram alert when a scheduled job stops sending pings. It runs on the Workers free plan.
 
-Each check has one Durable Object. A ping moves the alarm of that object to `now + timeout`. If the alarm fires, the Worker sends a "down" alert. The next ping sends a "recovered" alert. At 08:00 UTC each day, the Worker sends a summary of all checks.
+Each check has one Durable Object. A ping moves the alarm of that object to `now + timeout`. If the alarm fires, the Worker sends a "down" alert. The next ping sends a "recovered" alert.
 
 ## Development environment
 
