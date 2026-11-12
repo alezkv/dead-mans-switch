@@ -12,6 +12,12 @@ export interface CheckStatus {
 
 /** One Durable Object for each check. The alarm is the deadline of the next ping. */
 export class Monitor extends DurableObject<Env> {
+	async fail(name: string): Promise<void> {
+		const last = await this.ctx.storage.get<number>("last");
+		await notify(this.env, `🔴 ${name} reported a failure. Last ping: ${iso(last)}`);
+		await this.ctx.storage.put({ name, down: true });
+	}
+
 	async ping(name: string, timeoutSec: number): Promise<void> {
 		const now = Date.now();
 		await this.ctx.storage.put({ name, last: now });
@@ -54,7 +60,7 @@ export class Monitor extends DurableObject<Env> {
 		]);
 		return {
 			name,
-			state: last === undefined ? "new" : down ? "down" : "up",
+			state: down ? "down" : last === undefined ? "new" : "up",
 			last: iso(last),
 			deadline: iso(alarm ?? undefined),
 		};

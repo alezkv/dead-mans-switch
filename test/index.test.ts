@@ -117,6 +117,50 @@ describe("alerts", () => {
 	});
 });
 
+describe("fail", () => {
+	const fail = (init: RequestInit = { headers: AUTH }) =>
+		exports.default.fetch(`${BASE}/ping/backup/fail`, init);
+
+	it("rejects missing and bad tokens without sending an alert", async () => {
+		expect((await fail({})).status).toBe(401);
+		expect((await fail({ headers: { authorization: "Bearer wrong" } })).status).toBe(401);
+		expect(sent).toEqual([]);
+	});
+
+	it("accepts a query token and rejects an unknown check", async () => {
+		expect((await exports.default.fetch(`${BASE}/ping/nope/fail?key=test-token`)).status).toBe(404);
+		expect((await exports.default.fetch(`${BASE}/ping/backup/fail?key=test-token`)).status).toBe(200);
+		expect(sent).toHaveLength(1);
+	});
+
+	it("sends an alert for each failure and recovers on the next ping", async () => {
+		expect((await fail()).status).toBe(200);
+		expect((await fail({ method: "POST", headers: AUTH })).status).toBe(200);
+		expect(sent).toHaveLength(2);
+		expect(sent[0]).toMatch(/^🔴 backup reported a failure/);
+		const status = await exports.default.fetch(`${BASE}/status`, { headers: AUTH });
+		expect(await status.json()).toEqual([{ name: "backup", state: "down", last: null, deadline: null }]);
+
+		await ping("backup");
+		await ping("backup");
+		expect(sent.slice(2)).toEqual(["✅ backup recovered"]);
+	});
+
+	it("does not send a timeout alert while down after a failure", async () => {
+		await ping("backup");
+		await fail();
+		expect(await runDurableObjectAlarm(stub())).toBe(true);
+		expect(sent).toHaveLength(1);
+	});
+
+	it("does not mark a new check down when the failure alert fails", async () => {
+		telegramStatus = 500;
+		await expect(fail()).rejects.toThrow(/telegram sendMessage: 500/);
+		const status = await exports.default.fetch(`${BASE}/status`, { headers: AUTH });
+		expect(await status.json()).toEqual([{ name: "backup", state: "new", last: null, deadline: null }]);
+	});
+});
+
 describe("status", () => {
 	it("lists each check with its state", async () => {
 		let res = await exports.default.fetch(`${BASE}/status`, { headers: AUTH });

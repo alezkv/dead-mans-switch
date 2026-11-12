@@ -10,12 +10,14 @@ export default {
 			return new Response("unauthorized\n", { status: 401 });
 		}
 
-		const ping = url.pathname.match(/^\/ping\/([^/]+)\/?$/);
+		const ping = url.pathname.match(/^\/ping\/([^/]+)(\/fail)?\/?$/);
 		if (ping && (request.method === "GET" || request.method === "POST")) {
 			const name = decodeURIComponent(ping[1]);
 			const check = checks(env).get(name);
 			if (!check) return new Response("unknown check\n", { status: 404 });
-			await env.MONITOR.getByName(name).ping(name, check.timeout);
+			const monitor = env.MONITOR.getByName(name);
+			if (ping[2]) await monitor.fail(name);
+			else await monitor.ping(name, check.timeout);
 			return new Response("ok\n");
 		}
 
